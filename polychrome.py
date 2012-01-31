@@ -1,8 +1,13 @@
-#!/usr/bin/python2
+#!/usr/bin/python
 # -*- coding: utf-8 -*-
 # Created: 30 January 2012, Chee Sing Lee
 
+from __future__ import print_function
 from random import shuffle,sample,random
+import sys
+
+if sys.version_info.major == 2:
+    input = raw_input
 
 # define scoring schemes
 scoring1 = [0,1,3,6,10,15,21,21,21,21]
@@ -49,14 +54,14 @@ class PolychromeGame:
         # deal initial colors
         if not self.two_player:
             start_colors = sample(self.colors,n_players)
-            for i in xrange(n_players):
+            for i in range(n_players):
                 self.players[i].take_cards([start_colors[i]])
                 self.deck.remove(start_colors[i])
         else:
             start_colors = sample(self.colors,4)
             self.players[0].take_cards(start_colors[0:2])           
             self.players[1].take_cards(start_colors[2:])
-            for i in xrange(4):
+            for i in range(4):
                 self.deck.remove(start_colors[i])
         shuffle(self.deck)
         
@@ -67,7 +72,7 @@ class PolychromeGame:
             n_rounds += 1
             self.log('\n----Round '+str(n_rounds)+'----')
             # clear the piles
-            self.piles = [list() for n in xrange(n_players)]
+            self.piles = [list() for n in range(n_players)]
             # all players are in again
             self.piles_taken = [False]*n_players
             for p in self.players:
@@ -135,7 +140,7 @@ class PolychromeGame:
         self.log('Remaining cards: '+str(self.deck))
         # determine the winner
         winner = 0
-        for i in xrange(n_players):
+        for i in range(n_players):
             if final_scores[i] > final_scores[winner]:
                 winner = i
         self.log(self.players[winner].name+' is the winner')
@@ -160,7 +165,7 @@ class PolychromeGame:
         values = [self.scoring[n] for n in card_counts]
         values.sort(reverse=True)
         score = 0
-        for n in xrange(7):
+        for n in range(7):
             if n < 3:
                 score += values[n]
             else:
@@ -182,7 +187,7 @@ class PolychromeGame:
         """ check if all available piles are full """
         if not self.two_player:
             n_players = len(self.players)
-            full = [len(self.piles[i])==3 for i in xrange(n_players) if not self.piles_taken[i]]
+            full = [len(self.piles[i])==3 for i in range(n_players) if not self.piles_taken[i]]
             return all(full)
         else:
             return (
@@ -202,7 +207,7 @@ class PolychromeGame:
                 fid = open(s,'a')
                 fid.write(s+'\n')
             except:
-                print 'Error, could not write log to file '+self.log_dest
+                print('Error, could not write log to file '+self.log_dest)
                 
     def print_player_status(self,p):
         score = self.score_player(p)
@@ -225,7 +230,7 @@ class PolychromeGame:
         
     def print_piles(self):
         s = 'Pile contents: \n'
-        for i in xrange(len(self.piles)):
+        for i in range(len(self.piles)):
             if not self.piles_taken[i]:
                 s += str(i)+':'+str(self.piles[i])+' '
             else:
@@ -283,13 +288,13 @@ class PolychromePlayer:
 class HumanPlayer(PolychromePlayer):
     """ Human Polychrome Player
     
-    All decisions are made through raw_input()
+    All decisions are made through input()
     """
     def __init__(self,name):
         PolychromePlayer.__init__(self,name)
     def get_action(self):
         while True:
-            action = raw_input('Would you like to [t]ake or [d]raw? [ENTER for status] ').lower()
+            action = input('Would you like to [t]ake or [d]raw? [ENTER for status] ').lower()
             if len(action) == 0:
                 self.print_status()
             elif action == 't':
@@ -301,7 +306,7 @@ class HumanPlayer(PolychromePlayer):
                 
     def decision_take(self):
         while True:
-            n = raw_input('Enter the number of the pile you would like to pick up: [ENTER for status] ')
+            n = input('Enter the number of the pile you would like to pick up: [ENTER for status] ')
             if len(n) == 0:
                 self.print_status()
             elif not n.isdigit():
@@ -320,7 +325,7 @@ class HumanPlayer(PolychromePlayer):
                     
     def decision_draw(self,new_card):
         while True:
-            n = raw_input('Enter the number of the pile on which you would like put the new card: [ENTER for status] ')
+            n = input('Enter the number of the pile on which you would like put the new card: [ENTER for status] ')
             if len(n) == 0:
                 self.print_status()
             elif not n.isdigit():
@@ -363,7 +368,7 @@ class RandomPlayer(PolychromePlayer):
         n_players = len(self.game.players)
         # available piles are those which have not yet been taken, and which
         # contain cards
-        available_piles = [i for i in xrange(n_players) 
+        available_piles = [i for i in range(n_players) 
                             if not self.game.piles_taken[i] and 
                             any(self.game.piles[i])]
         return sample(available_piles,1)[0]
@@ -373,7 +378,7 @@ class RandomPlayer(PolychromePlayer):
         n_players = len(self.game.players)
         # valid piles are those which have not yet been taken, and which
         # contain fewer than 3 cards
-        valid_piles = [i for i in xrange(n_players) 
+        valid_piles = [i for i in range(n_players) 
                         if not self.game.piles_taken[i] and 
                         len(self.game.piles[i]) < 3]
         return sample(valid_piles,1)[0]
@@ -381,7 +386,7 @@ class RandomPlayer(PolychromePlayer):
 if __name__ == "__main__":
     # example game with 3 RandomPlayers and 1 HumanPlayer
     players = []
-    for i in xrange(3):
+    for i in range(3):
         players.append(RandomPlayer('Player '+str(i)))
     players.append(HumanPlayer("Human"))
     game = PolychromeGame(players,scoring1)
