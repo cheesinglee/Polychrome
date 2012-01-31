@@ -28,21 +28,16 @@ class PolychromeGame:
     
     def initialize_deck(self):
         """ populate the Polychrome deck """
-        # 7 colors, 9 of each
-        self.deck = self.colors*9
+
+        # 7 colors (if >3 players, 6 if >2 players, else 5 colors), 9 of each
+        reduce_colors_by = 2 if len(self.players) == 2 else 1 if len(self.players) == 3 else 0
+        self.deck = self.colors[reduce_colors_by:]*9
         
         # 3 wilds
         self.deck.extend(['wild']*3)
         
         # 10 bonus "+2" cards
         self.deck.extend(['+2']*10)
-        
-        # if 2 players, remove 2 colors. if 3 players, remove 1 color.
-        if len(self.players) == 2 or len(self.players) == 3:
-            colors_remove = sample(self.colors,4-2)
-            for c in colors_remove:
-                while self.deck.count(c) > 0:
-                    self.deck.remove(c)
         
         # shuffle
         shuffle(self.deck)
