@@ -13,6 +13,28 @@ if sys.version_info.major == 2:
 scoring1 = [0,1,3,6,10,15,21,21,21,21]
 scoring2 = [0,1,4,8,7,6,5,5,5,5]
 
+CARD_CHAR = '▮'
+def wrap_color(string, color, weight='standard'):
+    def rgb_to_color(r,g,b):
+        return int(r/256.*5*36) + int(g/256.*5*6) + int(b/256.*5) + 16
+    weights = { 'standard': '0',
+                'bold': '1' }
+    colors = { 'orange': '172',  #colors from http://www.mudpedia.org/wiki/Xterm_256_colors
+               'blue': '039',
+               'brown': '088',
+               'yellow': '226',
+               'gray': '248',
+               'green': '071',
+               'pink': '212',
+               'wild': '201',
+               '+2': '255' }
+
+    #color_start = '\033[{weight};{color}m'.format(color=colors[color], weight=weights[weight])
+    color_start = '\x1b[38;5;{color}m'.format(color=colors[color])
+    color_end = '\033[0m'
+    
+    return color_start + string + color_end
+
 class PolychromeGame:
     """ Class for playing Polychrome """
     deck = []
@@ -212,20 +234,26 @@ class PolychromeGame:
     def print_player_status(self,p):
         score = self.score_player(p)
         cards = list(p.cards)
-        template = '{name}:\t{score} points\n\
-        Orange: {n_orange}\tBlue: {n_blue}\tBrown: {n_brown}\n\
-        Yellow: {n_yellow}\tGray: {n_gray}\tGreen: {n_green}\n\
-        Pink  : {n_pink}\tWild: {n_wild}\t+2   : {n_bonus}'
-        s = template.format(name=p.name,score=str(score),
-                            n_orange=str(cards.count('orange')),
-                            n_blue=str(cards.count('blue')),
-                            n_brown=str(cards.count('brown')),
-                            n_yellow=str(cards.count('yellow')),
-                            n_gray=str(cards.count('gray')),
-                            n_green=str(cards.count('green')),
-                            n_pink=str(cards.count('pink')),
-                            n_wild=str(cards.count('wild')),
-                            n_bonus=str(cards.count('+2')))
+        cards.sort()
+
+        s = ''.join(wrap_color(CARD_CHAR, color) for color in cards)
+        template = '{name}:\t{score} points\nHand: {hand}'.format(name=p.name, score=score, hand=s)
+        s = '\x1b\x5b1;31;40m'+template+'\033[0m'
+
+        #template = '{name}:\t{score} points\n\
+        #Orange: {n_orange}\tBlue: {n_blue}\tBrown: {n_brown}\n\
+        #Yellow: {n_yellow}\tGray: {n_gray}\tGreen: {n_green}\n\
+        #Pink  : {n_pink}\tWild: {n_wild}\t+2   : {n_bonus}'
+        #s = template.format(name=p.name,score=str(score),
+        #                    n_orange=str(cards.count('orange')),
+        #                    n_blue=str(cards.count('blue')),
+        #                    n_brown=str(cards.count('brown')),
+        #                    n_yellow=str(cards.count('yellow')),
+        #                    n_gray=str(cards.count('gray')),
+        #                    n_green=str(cards.count('green')),
+        #                    n_pink=str(cards.count('pink')),
+        #                    n_wild=str(cards.count('wild')),
+        #                    n_bonus=str(cards.count('+2')))
         self.log(s)
         
     def print_piles(self):
