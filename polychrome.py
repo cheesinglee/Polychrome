@@ -487,7 +487,7 @@ class HumanPlayer(PolychromePlayer):
         for i,p in enumerate(self.game.piles):
             piles.append({ 'cards': p,
                            'name': 'Pile {0}'.format(i),
-                           'action_text': u'Place {1} on pile {0}'.format(i, terminal.wrap_in_color(u'▊',card)),
+                           'action_text': 'Place {1} on pile {0}'.format(i, terminal.wrap_in_color('\u258a',card)),
                            'action_response': { 'action': 'place', 'pile': i },
                            'pile_taken': self.game.piles_taken[i],
                            'selectable': not self.game.piles_taken[i] })

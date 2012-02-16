@@ -1,13 +1,15 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
 
-
+from __future__ import unicode_literals
 import termios, fcntl, struct, sys, os
 import signal
 import threading
 import time
 from collections import Counter
-from string import maketrans
+
+if sys.version_info.major == 2:
+    from string import maketrans
 
 def color(foreground=None, background=None):
     def rgb_to_color(r,g,b):
@@ -55,7 +57,8 @@ def wrap_in_color(string, foreground=None, background=None):
 
 def num_to_subscript(string):
     intab = '0123456789'
-    outtab = u'₀₁₂₃₄₅₆₇₈₉'
+#    outtab = u'₀₁₂₃₄₅₆₇₈₉'
+    outtab='\u2080\u2081\u2082\u2083\u2084\u2085\u2086\u2087\u2088\u2089'
     transtab = dict(zip(intab, outtab))
     ret = []
     for c in string:
@@ -358,7 +361,7 @@ class Piles(object):
             
             for c in counted:
                 # if there is more than one card of a particular color, display a subscript number of how many cards there are
-                card_in_color = wrap_in_color(u'▊', c)
+                card_in_color = wrap_in_color('\u258a', c)
                 number_of_cards = num_to_subscript(str(counted[c]))
                 card_list += card_in_color
                 if counted[c] > 1:
