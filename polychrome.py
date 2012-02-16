@@ -5,8 +5,16 @@
 from __future__ import print_function
 from random import shuffle, sample, random
 from itertools import combinations_with_replacement
-import sys
+import sys, time
 import copy
+
+import terminal
+
+# For debugging with winpdb
+#try:
+#    import rpdb2; rpdb2.start_embedded_debugger('x')
+#except ImportError:
+#    pass
 
 if sys.version_info.major == 2:
     input = raw_input
@@ -14,28 +22,6 @@ if sys.version_info.major == 2:
 # define scoring schemes
 scoring1 = [0,1,3,6,10,15,21,21,21,21]
 scoring2 = [0,1,4,8,7,6,5,5,5,5]
-
-CARD_CHAR = '▮'
-def wrap_color(string, color, weight='standard'):
-    def rgb_to_color(r,g,b):
-        return int(r/256.*5*36) + int(g/256.*5*6) + int(b/256.*5) + 16
-    weights = { 'standard': '0',
-                'bold': '1' }
-    colors = { 'orange': '172',  #colors from http://www.mudpedia.org/wiki/Xterm_256_colors
-               'blue': '039',
-               'brown': '088',
-               'yellow': '226',
-               'gray': '248',
-               'green': '071',
-               'pink': '212',
-               'wild': '201',
-               '+2': '255' }
-
-    #color_start = '\033[{weight};{color}m'.format(color=colors[color], weight=weights[weight])
-    color_start = '\x1b[38;5;{color}m'.format(color=colors[color])
-    color_end = '\033[0m'
-    
-    return color_start + string + color_end
 
 class PolychromeGame:
     """ Class for playing Polychrome """
@@ -159,6 +145,7 @@ class PolychromeGame:
         self.log('\n----Game Over----')
         final_scores = self.compute_scores()
         for p in self.players:
+            p.end_game()
             p.out = False
             self.print_player_status(p)
         self.log('Remaining cards: '+str(self.deck))
@@ -247,7 +234,8 @@ class PolychromeGame:
     def log(self,s):
         if len(self.log_dest) == 0:
             # log to console
-            print(s)
+            pass
+            #print(s)
         else:
             try:
                 fid = open(s,'a')
@@ -260,24 +248,20 @@ class PolychromeGame:
         cards = list(p.cards)
         cards.sort()
 
-        s = ''.join(wrap_color(CARD_CHAR, color) for color in cards)
-        template = '{name}:\t{score} points\nHand: {hand}'.format(name=p.name, score=score, hand=s)
-        s = '\x1b\x5b1;31;40m'+template+'\033[0m'
-
-        #template = '{name}:\t{score} points\n\
-        #Orange: {n_orange}\tBlue: {n_blue}\tBrown: {n_brown}\n\
-        #Yellow: {n_yellow}\tGray: {n_gray}\tGreen: {n_green}\n\
-        #Pink  : {n_pink}\tWild: {n_wild}\t+2   : {n_bonus}'
-        #s = template.format(name=p.name,score=str(score),
-        #                    n_orange=str(cards.count('orange')),
-        #                    n_blue=str(cards.count('blue')),
-        #                    n_brown=str(cards.count('brown')),
-        #                    n_yellow=str(cards.count('yellow')),
-        #                    n_gray=str(cards.count('gray')),
-        #                    n_green=str(cards.count('green')),
-        #                    n_pink=str(cards.count('pink')),
-        #                    n_wild=str(cards.count('wild')),
-        #                    n_bonus=str(cards.count('+2')))
+        template = '{name}:\t{score} points\n\
+        Orange: {n_orange}\tBlue: {n_blue}\tBrown: {n_brown}\n\
+        Yellow: {n_yellow}\tGray: {n_gray}\tGreen: {n_green}\n\
+        Pink  : {n_pink}\tWild: {n_wild}\t+2   : {n_bonus}'
+        s = template.format(name=p.name,score=str(score),
+                            n_orange=str(cards.count('orange')),
+                            n_blue=str(cards.count('blue')),
+                            n_brown=str(cards.count('brown')),
+                            n_yellow=str(cards.count('yellow')),
+                            n_gray=str(cards.count('gray')),
+                            n_green=str(cards.count('green')),
+                            n_pink=str(cards.count('pink')),
+                            n_wild=str(cards.count('wild')),
+                            n_bonus=str(cards.count('+2')))
         self.log(s)
 
     def print_piles(self):
@@ -357,7 +341,9 @@ class PolychromePlayer(object):
 #        self.game = copy.deepcopy(game)
         self.game = game
 
-    def get_action():
+    def get_action(self):
+        pass
+    def end_game(self):
         pass
 
     def select_pile(self,new_card=-1):
@@ -457,56 +443,93 @@ class HumanPlayer(PolychromePlayer):
     All decisions are made through input()
     """
     def __init__(self,name):
-        PolychromePlayer.__init__(self,name)
+        PolychromePlayer.__init__(self, name)
+        # Set up the terminal window for this player.
+        self.polychrome_layout = terminal.PolychromeLayout(terminal.Terminal(sys.stdout))
+        self.take_pile = 0
+    def display_draw_or_take_status(self):
+        """ draw the current game status in self.polychrome_layout """
+        # Prepare and draw all the player's stacks
+        player_piles = [{'name': p.name, 'cards': p.cards, 'score': self.game.score(p.cards)} for p in self.game.players]
+        self.polychrome_layout.player_piles = terminal.Piles(self.polychrome_layout.left_col, player_piles)
+        self.polychrome_layout.player_piles.refresh()
+
+        # Prepare the deck stack and the regular piles
+        piles  = [{'name': 'Deck',
+                   'cards': ['black']*len(self.game.deck),
+                   'action_text': 'Draw a card from the deck',
+                   'action_response': { 'action': 'draw' } }]
+        for i,p in enumerate(self.game.piles):
+            piles.append({ 'cards': p,
+                           'name': 'Pile {0}'.format(i),
+                           'action_text': 'Take pile {0}'.format(i),
+                           'action_response': { 'action': 'take', 'pile': i },
+                           'pile_taken': self.game.piles_taken[i],
+                           'selectable': not self.game.piles_taken[i] })
+        self.polychrome_layout.piles = terminal.Piles(self.polychrome_layout.right_col, piles)
+        self.polychrome_layout.piles.select_first()
+        self.polychrome_layout.piles.refresh()
+        self.polychrome_layout.print_pile_action()
+
+    def display_place_on_pile_status(self, card):
+        """ draw the current game status in self.polychrome_layout """
+        # Prepare and draw all the player's stacks
+        player_piles = [{'name': p.name, 'cards': p.cards, 'score': self.game.score(p.cards)} for p in self.game.players]
+        self.polychrome_layout.player_piles = terminal.Piles(self.polychrome_layout.left_col, player_piles)
+        self.polychrome_layout.player_piles.refresh()
+
+        # Prepare the deck stack and the regular piles
+        piles  = [{'name': 'Deck',
+                   'cards': ['black']*len(self.game.deck),
+                   'action_text': 'Draw a card from the deck',
+                   'action_response': { 'action': 'draw' },
+                   'selectable': False }]
+        for i,p in enumerate(self.game.piles):
+            piles.append({ 'cards': p,
+                           'name': 'Pile {0}'.format(i),
+                           'action_text': u'Place {1} on pile {0}'.format(i, terminal.wrap_in_color(u'▊',card)),
+                           'action_response': { 'action': 'place', 'pile': i },
+                           'pile_taken': self.game.piles_taken[i],
+                           'selectable': not self.game.piles_taken[i] })
+        self.polychrome_layout.piles = terminal.Piles(self.polychrome_layout.right_col, piles)
+        self.polychrome_layout.piles.select_first()
+        self.polychrome_layout.piles.refresh()
+        self.polychrome_layout.print_pile_action()
+    def end_game(self):
+        self.display_draw_or_take_status()
+        self.polychrome_layout.exit()
+
     def get_action(self):
         while True:
-            action = input('Would you like to [t]ake or [d]raw? [ENTER for status] ').lower()
-            if len(action) == 0:
-                self.print_status()
-            elif action == 't':
-                return 'take'
-            elif action == 'd':
+            self.display_draw_or_take_status()
+            #TODO for some reason if this is not here a IOError: [Errno 11] Resource temporarily unavailable error occurs
+            time.sleep(.1)
+            action = self.polychrome_layout.block_for_input()
+            if action['action'] == 'draw':
                 return 'draw'
+            if action['action'] == 'take':
+                self.take_pile = action['pile']
+                return 'take'
+            if action['action'] == 'quit':
+                self.polychrome_layout.exit()
             else:
-                print('Please answer "t" or "d"')
+                self.polychrome_layout.bottom_area.add_str(0,0,'Error, action not understood')
+
 
     def decision_take(self):
-        while True:
-            n = input('Enter the number of the pile you would like to pick up: [ENTER for status] ')
-            if len(n) == 0:
-                self.print_status()
-            elif not n.isdigit():
-                print('Enter a numerical value')
-                continue
-            else:
-                n = int(n)
-                if self.game.piles_taken[n]:
-                    print('Pile has already been taken')
-                elif len(self.game.piles[n]) == 0:
-                    print('Cannot pick up empty pile')
-                elif n >= len(self.game.piles):
-                    print('Invalid number')
-                else:
-                    return n
+        return self.take_pile
 
-    def decision_draw(self,new_card):
+    def decision_draw(self, new_card):
         while True:
-            n = input('Enter the number of the pile on which you would like put the new card: [ENTER for status] ')
-            if len(n) == 0:
-                self.print_status()
-            elif not n.isdigit():
-                print('Enter a numerical value')
-                continue
+            self.display_place_on_pile_status(new_card)
+            time.sleep(.1)
+            action = self.polychrome_layout.block_for_input()
+            if action['action'] == 'place':
+                return action['pile']
+            if action['action'] == 'quit':
+                self.polychrome_layout.exit()
             else:
-                n = int(n)
-                if self.game.piles_taken[n]:
-                    print('Pile has already been taken')
-                elif len(self.game.piles[n]) == 3:
-                    print('Pile is already full')
-                elif n >= len(self.game.piles):
-                    print('Invalid number')
-                else:
-                    return n
+                self.polychrome_layout.bottom_area.add_str(0,0,'Error, action not understood')
 
     def print_status(self):
         """ print game status
@@ -554,8 +577,8 @@ if __name__ == "__main__":
     players = []
     for i in range(3):
         players.append(RandomPlayer('Player '+str(i)))
-    players.append(GreedyBot('Greedy'))
+#    players.append(GreedyBot('Greedy'))
 #    player_name = input('Enter your name: ')
-#    players.append(HumanPlayer(player_name))
+    players.append(HumanPlayer('Jason'))
     game = PolychromeGame(players,scoring1)
     game.play()
