@@ -1,8 +1,9 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
+# -*- encoding: utf-8 -*-
 # Created: 30 January 2012, Chee Sing Lee
 
-from __future__ import print_function
+from __future__ import print_function, unicode_literals
 from random import shuffle, sample, random
 from itertools import combinations_with_replacement
 import sys, time
@@ -480,14 +481,14 @@ class HumanPlayer(PolychromePlayer):
 
         # Prepare the deck stack and the regular piles
         piles  = [{'name': 'Deck',
-                   'cards': ['black']*len(self.game.deck),
+                   'cards': [None]*len(self.game.deck),
                    'action_text': 'Draw a card from the deck',
                    'action_response': { 'action': 'draw' },
                    'selectable': False }]
         for i,p in enumerate(self.game.piles):
             piles.append({ 'cards': p,
                            'name': 'Pile {0}'.format(i),
-                           'action_text': u'Place {1} on pile {0}'.format(i, terminal.wrap_in_color(u'▊',card)),
+                           'action_text': ['Place ', terminal.ColoredString('▊',card), ' on Pile {0}'.format(i)],
                            'action_response': { 'action': 'place', 'pile': i },
                            'pile_taken': self.game.piles_taken[i],
                            'selectable': not self.game.piles_taken[i] })
@@ -503,7 +504,7 @@ class HumanPlayer(PolychromePlayer):
         while True:
             self.display_draw_or_take_status()
             #TODO for some reason if this is not here a IOError: [Errno 11] Resource temporarily unavailable error occurs
-            time.sleep(.1)
+#            time.sleep(.1)
             action = self.polychrome_layout.block_for_input()
             if action['action'] == 'draw':
                 return 'draw'
