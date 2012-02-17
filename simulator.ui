@@ -1,13 +1,13 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <ui version="4.0">
- <class>MainWindow</class>
- <widget class="QMainWindow" name="MainWindow">
+ <class>Simulator</class>
+ <widget class="QMainWindow" name="Simulator">
   <property name="geometry">
    <rect>
     <x>0</x>
     <y>0</y>
     <width>858</width>
-    <height>738</height>
+    <height>743</height>
    </rect>
   </property>
   <property name="sizePolicy">
@@ -36,7 +36,7 @@
        </sizepolicy>
       </property>
       <property name="currentIndex">
-       <number>0</number>
+       <number>2</number>
       </property>
       <widget class="QWidget" name="tab">
        <attribute name="title">
@@ -55,7 +55,7 @@
              </widget>
             </item>
             <item row="0" column="1">
-             <widget class="QComboBox" name="comboBox">
+             <widget class="QComboBox" name="cbo_player1">
               <property name="sizePolicy">
                <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
                 <horstretch>0</horstretch>
@@ -72,7 +72,7 @@
              </widget>
             </item>
             <item row="1" column="1">
-             <widget class="QComboBox" name="comboBox_2">
+             <widget class="QComboBox" name="cbo_player2">
               <property name="sizePolicy">
                <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
                 <horstretch>0</horstretch>
@@ -89,7 +89,7 @@
              </widget>
             </item>
             <item row="2" column="1">
-             <widget class="QComboBox" name="comboBox_3">
+             <widget class="QComboBox" name="cbo_player3">
               <property name="sizePolicy">
                <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
                 <horstretch>0</horstretch>
@@ -106,7 +106,7 @@
              </widget>
             </item>
             <item row="3" column="1">
-             <widget class="QComboBox" name="comboBox_4">
+             <widget class="QComboBox" name="cbo_player4">
               <property name="sizePolicy">
                <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
                 <horstretch>0</horstretch>
@@ -123,7 +123,7 @@
              </widget>
             </item>
             <item row="4" column="1">
-             <widget class="QComboBox" name="comboBox_5">
+             <widget class="QComboBox" name="cbo_player5">
               <property name="sizePolicy">
                <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
                 <horstretch>0</horstretch>
@@ -141,6 +141,9 @@
               <property name="text">
                <string>Number of Games</string>
               </property>
+              <property name="alignment">
+               <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+              </property>
              </widget>
             </item>
             <item row="1" column="0">
@@ -148,13 +151,16 @@
               <property name="text">
                <string>Scoring Scheme</string>
               </property>
+              <property name="alignment">
+               <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+              </property>
              </widget>
             </item>
             <item row="1" column="1">
-             <widget class="QComboBox" name="comboBox_6"/>
+             <widget class="QComboBox" name="cbo_scoring"/>
             </item>
             <item row="0" column="1">
-             <widget class="QSpinBox" name="spinBox"/>
+             <widget class="QSpinBox" name="spin_n_games"/>
             </item>
            </layout>
           </item>
@@ -174,7 +180,10 @@
             </property>
             <layout class="QHBoxLayout" name="horizontalLayout_2">
              <item>
-              <widget class="QCheckBox" name="checkBox">
+              <widget class="QCheckBox" name="chk_preset_wilds">
+               <property name="toolTip">
+                <string>When a player picks up a wild, he must immediately assign it a color, which can not be later modified.</string>
+               </property>
                <property name="text">
                 <string>Preset Wilds</string>
                </property>
@@ -226,7 +235,7 @@
        </attribute>
        <layout class="QHBoxLayout" name="horizontalLayout">
         <item>
-         <widget class="QTextBrowser" name="textBrowser"/>
+         <widget class="QTextBrowser" name="txt_log"/>
         </item>
        </layout>
       </widget>
@@ -235,9 +244,9 @@
     <item>
      <layout class="QHBoxLayout" name="horizontalLayout_3">
       <item>
-       <widget class="QToolButton" name="toolButton">
+       <widget class="QPushButton" name="btn_go">
         <property name="text">
-         <string>...</string>
+         <string>Go!</string>
         </property>
         <property name="iconSize">
          <size>
@@ -248,9 +257,9 @@
        </widget>
       </item>
       <item>
-       <widget class="QProgressBar" name="progressBar">
+       <widget class="QProgressBar" name="progress_bar">
         <property name="value">
-         <number>24</number>
+         <number>0</number>
         </property>
        </widget>
       </item>
@@ -264,7 +273,7 @@
      <x>0</x>
      <y>0</y>
      <width>858</width>
-     <height>19</height>
+     <height>20</height>
     </rect>
    </property>
   </widget>

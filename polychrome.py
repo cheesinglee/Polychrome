@@ -542,7 +542,7 @@ class HumanPlayer(PolychromePlayer):
             self.game.print_player_status(p)
         self.game.print_piles()
 
-class RandomPlayer(PolychromePlayer):
+class RandomBot(PolychromePlayer):
     """ Polychrome AI player which makes all decisions randomly """
     def __init__(self,name):
         PolychromePlayer.__init__(self,name)
@@ -573,12 +573,12 @@ class RandomPlayer(PolychromePlayer):
         return sample(valid_piles,1)[0]
 
 if __name__ == "__main__":
-    # example game with 3 RandomPlayers and 1 HumanPlayer
+    # example game with 3 RandomBots and 1 HumanPlayer
     players = []
     for i in range(3):
-        players.append(RandomPlayer('Player '+str(i)))
-#    players.append(GreedyBot('Greedy'))
+        players.append(RandomBot('Player '+str(i)))
+    players.append(GreedyBot('Greedy'))
 #    player_name = input('Enter your name: ')
-    players.append(HumanPlayer('Jason'))
+    players.append(HumanPlayer('Chrissy'))
     game = PolychromeGame(players,scoring1)
     game.play()
