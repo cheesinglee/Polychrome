@@ -12,17 +12,17 @@ import copy
 import terminal
 
 # For debugging with winpdb
-#try:
-#    import rpdb2; rpdb2.start_embedded_debugger('x')
-#except ImportError:
-#    pass
+try:
+    import rpdb2; rpdb2.start_embedded_debugger('x')
+except ImportError:
+    pass
 
 if sys.version_info.major == 2:
     input = raw_input
 
 # define scoring schemes
-scoring1 = [0,1,3,6,10,15,21,21,21,21]
-scoring2 = [0,1,4,8,7,6,5,5,5,5]
+scoring1 = [0,1,3,6,10,15,21]
+scoring2 = [0,1,4,8,7,6,5]
 
 class PolychromeGame:
     """ Class for playing Polychrome """
@@ -33,14 +33,18 @@ class PolychromeGame:
     piles = []
     piles_taken = []
     scoring = []
-    log_dest = ''
+    log_buffer = ''
+    log_mode = 'buffer'
+    log_filename = ''
 
     def __init__(self,players,scoring):
-        self.two_player = False
-        self.initialize_deck()
         self.scoring = scoring
         self.players = players
-        self.piles = [list() for p in self.players]
+        self.two_player = len(self.players) == 2
+        if not self.two_player:
+            self.piles = [list() for p in self.players]
+        else:
+            self.piles = [list(),list(),list()]
 
     def initialize_deck(self):
         """ populate the Polychrome deck """
@@ -48,6 +52,7 @@ class PolychromeGame:
         # 7 colors (if >3 players, 6 if >2 players, else 5 colors), 9 of each
         reduce_colors_by = 2 if len(self.players) == 2 else 1 if len(self.players) == 3 else 0
         self.deck = self.colors[reduce_colors_by:]*9
+        self.colors = self.colors[reduce_colors_by:]
 
         # 3 wilds
         self.deck.extend(['wild']*3)
@@ -61,6 +66,11 @@ class PolychromeGame:
     def play(self):
         """ Play one game of Polychrome
         """
+        self.initialize_deck()
+        if not self.two_player:
+            self.piles = [list() for p in self.players]
+        else:
+            self.piles = [list(),list(),list()]
         n_players = len(self.players)
         # deal initial colors
         if not self.two_player:
@@ -83,13 +93,20 @@ class PolychromeGame:
             n_rounds += 1
             self.log('\n----Round '+str(n_rounds)+'----')
             # clear the piles
-            self.piles = [list() for n in range(n_players)]
+            if not self.two_player:
+                self.piles = [list() for p in self.players]
+            else:
+                self.piles = [list(),list(),list()]
             # all players are in again
-            self.piles_taken = [False]*n_players
+            if not self.two_player:
+                self.piles_taken = [False]*n_players
+            else:
+                self.piles_taken = [False]*3
             for p in self.players:
                 p.out = False
                 self.print_player_status(p)
-            while not all(self.piles_taken):
+            all_out = False
+            while not all_out:
                 # choose next player
                 while True:
                     player_idx += 1
@@ -140,6 +157,10 @@ class PolychromeGame:
                 if cards_left < 15:
                     self.log('Last Round!')
                     last_round = True
+                # check if everyone is out
+                all_out = True
+                for p in self.players:
+                    all_out = all_out and p.out
             # adjust the player index so that the last player to take in this
             # round is the starting player for the next round
             player_idx -= 1
@@ -181,7 +202,13 @@ class PolychromeGame:
                 # make the wild assignments
                 for i in wild_assignments:
                     color_counts[i] += 1
-
+               
+                # truncate the color counts if the exceed the defined values 
+                # in the scoring scheme
+                for i in range(len(color_counts)):
+                    if color_counts[i] >= len(self.scoring):
+                        color_counts[i] = len(self.scoring)-1
+                
                 # compute scoring
                 values = [self.scoring[n] for n in color_counts]
                 values.sort(reverse=True)
@@ -195,11 +222,16 @@ class PolychromeGame:
                     max_score = tmp_score
             score = max_score
         else:
+            # truncate the color counts if the exceed the defined values 
+            # in the scoring scheme
+            for i in range(len(color_counts_no_wild)):
+                if color_counts_no_wild[i] >= len(self.scoring):
+                    color_counts_no_wild[i] = len(self.scoring)-1
             # scoring without wilds
             values = [self.scoring[n] for n in color_counts_no_wild]
             values.sort(reverse=True)
             score = 0
-            for n in range(7):
+            for n in range(len(self.colors)):
                 if n < 3:
                     score += values[n]
                 else:
@@ -225,24 +257,34 @@ class PolychromeGame:
             return all(full)
         else:
             return (
-                (len(self.piles[0]) == 1 and not self.piles_taken[0]) and
-                (len(self.piles[1]) == 2 and not self.piles_taken[1]) and
-                (len(self.piles[2]) == 3 and not self.piles_taken[2]))
+                (len(self.piles[0]) == 1 or self.piles_taken[0]) and
+                (len(self.piles[1]) == 2 or self.piles_taken[1]) and
+                (len(self.piles[2]) == 3 or self.piles_taken[2]))
 
-    def set_log_output(self,dest):
-        self.log_dest = dest
+    def set_log_mode(self,mode,filename=''):
+        if mode == 'buffer' or mode == 'print' or mode == 'file':
+            self.log_mode = mode
+            self.log_filename = ''
+        else:
+            raise(ValueError,'acceptable log modes are "buffer", "print", or "file"')
 
     def log(self,s):
-        if len(self.log_dest) == 0:
-            # log to console
-            pass
-            #print(s)
-        else:
+        if self.log_mode == 'buffer':
+            self.log_buffer += s+'\n'
+        elif self.log_mode == 'print':
+            print(s)
+        elif self.log_mode == 'file':
             try:
                 fid = open(s,'a')
                 fid.write(s+'\n')
+                fid.close()
             except:
                 print('Error, could not write log to file '+self.log_dest)
+                
+    def flush_log(self):
+        flushed = self.log_buffer
+        self.log_buffer = ''
+        return flushed
 
     def print_player_status(self,p):
         score = self.score(p.cards)
@@ -285,14 +327,9 @@ class PolychromeGame:
         piles_take = []
         i = 0
         for p in self.piles:
-            if not self.two_player:
-                if not self.piles_taken[i] and len(p) > 0:
-                    idx_take.append(i)
-                    piles_take.append(p)
-            else:
-                if len(p) > i and not self.piles_taken[i]:
-                    idx_take.append(i)
-                    piles_take.append(p)
+            if not self.piles_taken[i] and len(p) > 0:
+                idx_take.append(i)
+                piles_take.append(p)
             i += 1
         return (piles_take,idx_take)
 
@@ -368,6 +405,36 @@ class PolychromePlayer(object):
 
     def is_out(self):
         return self.is_out()
+        
+    def find_optimal_pile_take(self):
+        # score each available pile and pick up the one that is worth the most
+        idx = -1
+        max_score = -1000
+        counter = -1
+        [piles_take,idx_take] = self.game.get_piles_take()
+        for p in piles_take:
+            counter += 1
+            pile_score = self.evaluate_pile(p)
+            if pile_score > max_score:
+                max_score = pile_score
+                idx = idx_take[counter]
+        return idx
+
+    def find_optimal_pile_draw(self,new_card):
+        # loop through each pile, and score each one with the addition of
+        # the new card. place the new card where the score would be the
+        # highest
+        idx = -1
+        max_score = -1000
+        counter = -1
+        [piles_draw,idx_draw] = self.game.get_piles_draw()
+        for p in piles_draw:
+            counter += 1
+            pile_score = self.evaluate_pile(p+[new_card])
+            if pile_score > max_score:
+                max_score = pile_score
+                idx = idx_draw[counter]
+        return idx
 
     def evaluate_pile(self,pile):
         """
@@ -399,36 +466,6 @@ class GreedyBot(PolychromePlayer):
     def decision_draw(self,new_card):
         return self.find_optimal_pile_draw(new_card)
 
-    def find_optimal_pile_take(self):
-        # score each available pile and pick up the one that is worth the most
-        idx = -1
-        max_score = -1000
-        counter = -1
-        [piles_take,idx_take] = self.game.get_piles_take()
-        for p in piles_take:
-            counter += 1
-            pile_score = self.evaluate_pile(p)
-            if pile_score > max_score:
-                max_score = pile_score
-                idx = idx_take[counter]
-        return idx
-
-    def find_optimal_pile_draw(self,new_card):
-        # loop through each pile, and score each one with the addition of
-        # the new card. place the new card where the score would be the
-        # highest
-        idx = -1
-        max_score = -1000
-        counter = -1
-        [piles_draw,idx_draw] = self.game.get_piles_draw()
-        for p in piles_draw:
-            counter += 1
-            pile_score = self.evaluate_pile(p+[new_card])
-            if pile_score > max_score:
-                max_score = pile_score
-                idx = idx_draw[counter]
-        return idx
-
 class BuilderBot(PolychromePlayer):
     """
     BuilderBot will always draw if possible. It places the drawn card in the
@@ -436,6 +473,19 @@ class BuilderBot(PolychromePlayer):
     """
     def __init__(self,name):
         PolychromePlayer.__init__(self,name)
+        
+    def get_action(self):
+        [piles_draw,idx_draw] = self.game.get_piles_draw()
+        if len(idx_draw) > 0:
+            return 'draw'
+        else:
+            return 'take'
+
+    def decision_take(self):
+        return self.find_optimal_pile_take()
+
+    def decision_draw(self,new_card):
+        return self.find_optimal_pile_draw(new_card)
 
 
 class HumanPlayer(PolychromePlayer):
@@ -555,31 +605,22 @@ class RandomBot(PolychromePlayer):
 
     def decision_take(self):
         """ Randomly decide to take one of the available piles """
-        n_players = len(self.game.players)
-        # available piles are those which have not yet been taken, and which
-        # contain cards
-        available_piles = [i for i in range(n_players)
-                            if not self.game.piles_taken[i] and
-                            any(self.game.piles[i])]
-        return sample(available_piles,1)[0]
+        [piles_take,idx_take] = self.game.get_piles_take()
+        return sample(idx_take,1)[0]
 
     def decision_draw(self,new_card):
         """ Randomly decide on which pile to place the drawn card """
-        n_players = len(self.game.players)
-        # valid piles are those which have not yet been taken, and which
-        # contain fewer than 3 cards
-        valid_piles = [i for i in range(n_players)
-                        if not self.game.piles_taken[i] and
-                        len(self.game.piles[i]) < 3]
-        return sample(valid_piles,1)[0]
+        [piles_draw,idx_draw] = self.game.get_piles_draw()
+        return sample(idx_draw,1)[0]
 
 if __name__ == "__main__":
-    # example game with 3 RandomBots and 1 HumanPlayer
+    # example game with 3 RandomBots, 1 GreedyBot, and 1 HumanPlayer
     players = []
-    for i in range(3):
-        players.append(RandomBot('Player '+str(i)))
-    players.append(GreedyBot('Greedy'))
+    for i in range(2):
+        players.append(GreedyBot('Player '+str(i+1)))
+#    players.append(GreedyBot('Greedy'))
 #    player_name = input('Enter your name: ')
-    players.append(HumanPlayer('Chrissy'))
+#    players.append(HumanPlayer('Human'))
     game = PolychromeGame(players,scoring1)
+    game.set_log_mode('print')
     game.play()
