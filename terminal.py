@@ -54,7 +54,6 @@ class ColoredString(object):
                 ret += ColoredString.split_any(s)
             return ret
         raise ValueError('Unknown type for split_any: {0}'.format(type(string)))
->>>>>>> 32a46eb3d89c1bdd149d1c40e0420697d964aa1b
 
 def color(foreground=None, background=None):
     def rgb_to_color(r,g,b):
@@ -138,12 +137,7 @@ def split_display_chars(string):
 
 def num_to_subscript(string):
     intab = '0123456789'
-<<<<<<< HEAD
-#    outtab = u'₀₁₂₃₄₅₆₇₈₉'
-    outtab='\u2080\u2081\u2082\u2083\u2084\u2085\u2086\u2087\u2088\u2089'
-=======
     outtab = '₀₁₂₃₄₅₆₇₈₉'
->>>>>>> 32a46eb3d89c1bdd149d1c40e0420697d964aa1b
     transtab = dict(zip(intab, outtab))
     ret = []
     for c in string:
@@ -489,11 +483,7 @@ class Piles(object):
             
             for c in counted:
                 # if there is more than one card of a particular color, display a subscript number of how many cards there are
-<<<<<<< HEAD
-                card_in_color = wrap_in_color('\u258a', c)
-=======
                 card_in_color = ColoredString('▊', c)
->>>>>>> 32a46eb3d89c1bdd149d1c40e0420697d964aa1b
                 number_of_cards = num_to_subscript(str(counted[c]))
                 card_list.append(card_in_color)
                 if counted[c] > 1:
