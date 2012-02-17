@@ -1,5 +1,6 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
+# -*- encoding: utf-8 -*-
 
 from __future__ import unicode_literals
 import termios, fcntl, struct, sys, os
@@ -8,8 +9,52 @@ import threading
 import time
 from collections import Counter
 
-if sys.version_info.major == 2:
-    from string import maketrans
+if sys.version_info.major == 3:
+    unicode = str
+
+class ColoredString(object):
+    def __init__(self, string, foreground=None, background=None):
+        self.string = string
+        self.foreground = foreground
+        self.background = background
+    def __len__(self):
+        return len(self.string)
+    def __str__(self):
+        return self.string
+    def __repr__(self):
+        return '<"{0}" background: {1} foreground: {2}>'.format(self.string, self.background, self.foreground)
+    def __getitem__(self, item):
+        return ColoredString(self.string[item], self.foreground, self.background)
+    def split(self):
+        return [self.__getitem__(i) for i in range(len(self.string))]
+    def rasterize(self):
+        return wrap_in_escaped_color(self.string, self.foreground, self.background)
+    @classmethod
+    def rasterize_any(cls, string):
+        """ returns a raserized version of a string, ColoredString, or a list """
+        if type(string) in (str, unicode):
+            return string
+        if type(string) is ColoredString:
+            return string.rasterize()
+        if type(string) in (list, tuple):
+            return ''.join([ColoredString.rasterize_any(s) for s in string])
+        raise ValueError('Unknown type for rasterize_any: {0}'.format(type(string)))
+
+    @classmethod
+    def split_any(cls, string):
+        """ splits a ColoredString or a list of ColoredString into a list where
+        each element is a single character """
+        if type(string) in (str, unicode):
+            return list(string)
+        if type(string) is ColoredString:
+            return string.split()
+        if type(string) in (list, tuple):
+            ret = []
+            for s in string:
+                ret += ColoredString.split_any(s)
+            return ret
+        raise ValueError('Unknown type for split_any: {0}'.format(type(string)))
+>>>>>>> 32a46eb3d89c1bdd149d1c40e0420697d964aa1b
 
 def color(foreground=None, background=None):
     def rgb_to_color(r,g,b):
@@ -49,23 +94,61 @@ def color(foreground=None, background=None):
         ret_background = '\x1b[48;5;{color}m'.format(color=colors[background])
     elif type(background) in (list, tuple):
         ret_background = '\x1b[48;5;{color}m'.format(rgb_to_color(*background))
+    # if both foreground and background are none, we want the default coloring
+    if foreground is None and background is None:
+        foreground = '\033[0m'
 
     return ret_background+ret_foreground
 
-def wrap_in_color(string, foreground=None, background=None):
+def wrap_in_escaped_color(string, foreground=None, background=None):
     return color(foreground, background) + string + '\033[0m'
+
+def split_display_chars(string):
+    """ Returns a list of the chars in string where each character is a character that gets displayed,
+    i.e., escape characters count as zero-width """
+    tmp_buf = []
+    char_buf = []
+    i = 0
+    while i < len(string):
+        char_buf = [string[i]]
+        if string[i] == '\033':
+            while string[i].lower() not in  ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z']:
+                i += 1
+                char_buf.append(string[i])
+
+        tmp_buf.append(''.join(char_buf))
+        i += 1
+    #tmp_buf still contains zero-width chars.  We need to collapse all of those
+    def eat_char(l, c=''):
+        if len(l) == 0:
+            return (c, [])
+        if len(l[0]) > 1:
+            c += l[0]
+            return eat_char(l[1:], c)
+        c += l[0]
+        return (c, l[1:])
+
+    ret = []
+    remander = tmp_buf
+    while len(remander) > 0:
+        c, remander = eat_char(remander)
+        ret.append(c)
+
+    return ret
 
 def num_to_subscript(string):
     intab = '0123456789'
+<<<<<<< HEAD
 #    outtab = u'₀₁₂₃₄₅₆₇₈₉'
     outtab='\u2080\u2081\u2082\u2083\u2084\u2085\u2086\u2087\u2088\u2089'
+=======
+    outtab = '₀₁₂₃₄₅₆₇₈₉'
+>>>>>>> 32a46eb3d89c1bdd149d1c40e0420697d964aa1b
     transtab = dict(zip(intab, outtab))
     ret = []
     for c in string:
         ret.append(transtab[c])
     return ''.join(ret)
-    trantab = maketrans(intab, outtab)
-    return string.translate(trantab)
 
 
 class SubWindow(object):
@@ -115,17 +198,37 @@ class ThreadedInputCallback(threading.Thread):
                         while c.lower() not in ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z']:
                             c = sys.stdin.read(1)
                             command += c
-                    self.callback(self.parent, command)
+                    if len(command) > 0:    #python3 allows empty reads for some reason...
+                        self.callback(self.parent, command)
                 except IOError: pass
                 time.sleep(.1)
         finally:
             termios.tcsetattr(fd, termios.TCSAFLUSH, oldterm)
             fcntl.fcntl(fd, fcntl.F_SETFL, oldflags)
 
+class StringBuffer(object):
+    """ Two-dimensional string array used to buffer the terminal
+    when it isn't being written to """
+    def __init__(self, width, height):
+        self.width = width
+        self.height = height
+        # Buffer is initialized to all spaces
+        self.lines = [[' ' for i in range(self.width)] for j in range(self.height)]
+
+    def set(self, x, y, char):
+        if 0 <= x < self.width and 0 <= y < self.height:
+            split = ColoredString.split_any(char)
+            for i,c in enumerate(split):
+                if x + i < self.width:
+                    self.lines[y][x + i] = c
+    def erase(self):
+        self.lines = [[' ' for i in range(self.width)] for j in range(self.height)]
 
 class Terminal(object):
     def __init__(self, stream):
         self.stream = stream
+        self.buffer = StringBuffer(*self.get_size())
+        self.queued_refreshes = 0
 
     def get_size(self):
         width, height = 80, 40
@@ -141,6 +244,12 @@ class Terminal(object):
     def move_cursor(self, x, y):
         self.stream.write('\033[{0};{1}H'.format(y + 1,x + 1))
 
+    def resize(self, x=-1, y=-1):
+        if x < 0  or y < 0:
+            self.buffer = StringBuffer(*self.get_size())
+        else:
+            self.buffer = StringBuffer(x,y)
+
     def watch_resize(self, callback):
         """ connects callback to the terminal resize event.
         callback takes arguments of the terminal object followed
@@ -154,8 +263,9 @@ class Terminal(object):
         self.input_thread.start()
 
     def add_str(self, x, y, string):
-        self.move_cursor(x,y)
-        self.stream.write(string)
+        self.buffer.set(x, y, string)
+#        self.move_cursor(x,y)
+#        self.stream.write(string)
     def erase(self):
         self.stream.write('\033[2J')
     def hide_cursor(self):
@@ -167,7 +277,7 @@ class Terminal(object):
 
     def draw_box(self, x, y, width, height):
         for i in range(1, width):
-            self.add_str(x + i, y, wrap_in_color('─', 'pink', background='gray'))
+            self.add_str(x + i, y, ColoredString('─', 'pink', background='gray'))
             self.add_str(x + i, y + height, '─')
         for i in range(1, height):
             pass
@@ -218,7 +328,24 @@ class Terminal(object):
 
 
     def refresh(self):
-        self.stream.flush()
+        def flush():
+            if self.queued_refreshes == 0:
+                return
+            try:
+                for i,line in enumerate(self.buffer.lines):
+                    self.move_cursor(0,i)
+                    self.stream.write(ColoredString.rasterize_any(line))
+                self.stream.flush()
+                self.queued_refreshes = 0
+            except IOError:
+                timer = threading.Timer(.1, flush)
+                timer.start()
+        # when we get a call to refresh, delay it by .1 secs to amalgomate any other refresh
+        # calls
+        self.queued_refreshes += 1
+        timer = threading.Timer(.1, flush)
+        timer.start()
+
 
 class PolychromeLayout(object):
     """ Manages a two-column layout for a game of polychrome """
@@ -253,7 +380,7 @@ class PolychromeLayout(object):
 
     def set_title(self, title):
         self.title_area.erase()
-        self.title_area.add_str(0,0, wrap_in_color(' ' + title, 'red'))
+        self.title_area.add_str(0,0, ColoredString(' ' + title, 'red'))
 
     def draw_columns(self, top_padding = 1, bottom_padding = 1):
         width, height = self.term.get_size()
@@ -293,6 +420,7 @@ class PolychromeLayout(object):
             self.bottom_area.add_str(0,0, "I don't understand '{0}'".format(key))
 
     def resize_callback(self, term=None, size=(0,0)):
+        self.term.resize()
         self.draw_columns()
         self.set_title('Polychrome')    # Must be done after draw_columns()
         self.term.refresh()
@@ -354,18 +482,22 @@ class Piles(object):
         self.term.erase()
 
         for i,p in enumerate(self.piles):
-            card_list = ' '
+            card_list = [' ']
             # get a cound of the number of each color of cards so we can
             # display how many there are as a subscript
             counted = Counter(p['cards'])
             
             for c in counted:
                 # if there is more than one card of a particular color, display a subscript number of how many cards there are
+<<<<<<< HEAD
                 card_in_color = wrap_in_color('\u258a', c)
+=======
+                card_in_color = ColoredString('▊', c)
+>>>>>>> 32a46eb3d89c1bdd149d1c40e0420697d964aa1b
                 number_of_cards = num_to_subscript(str(counted[c]))
-                card_list += card_in_color
+                card_list.append(card_in_color)
                 if counted[c] > 1:
-                    card_list += number_of_cards
+                    card_list.append(number_of_cards)
             pile_name = p['name']
             if p.get('pile_taken', False):
                 pile_name += ' (Taken)'
