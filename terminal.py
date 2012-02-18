@@ -2,8 +2,6 @@
 # -*- coding: utf-8 -*-
 # -*- encoding: utf-8 -*-
 
-from __future__ import unicode_literals
-
 import termios, fcntl, struct, sys, os
 import signal
 import threading
@@ -12,6 +10,22 @@ from collections import Counter
 
 if sys.version_info.major == 3:
     unicode = str
+
+# global list of constants
+EMPTY = ''
+CSI = '\033'
+CARD_CHAR = '▊'
+SUBSCRIPT_NUMBERS = '₀₁₂₃₄₅₆₇₈₉'
+HL, VL, UL, UR, LL, LR, UT, LT = '─', '│', '┌', '┐', '└', '┘', '┬', '┴'
+
+if sys.version_info.major == 2:
+    # python2 doesn't understand unicode literals and from __future__ import unicode_literals
+    # produces strange results, so we have to do this ugly hack...
+    CSI = unicode('\033', encoding='utf-8')
+    CARD_CHAR = unicode('▊', encoding='utf-8')
+    SUBSCRIPT_NUMBERS = unicode('₀₁₂₃₄₅₆₇₈₉', encoding='utf-8')
+    HL, VL, UL, UR, LL, LR, UT, LT = [unicode(c, encoding='utf-8') for c in ('─', '│', '┌', '┐', '└', '┘', '┬', '┴')]
+    EMPTY = unicode('')
 
 class ColoredString(object):
     def __init__(self, string, foreground=None, background=None):
@@ -26,10 +40,16 @@ class ColoredString(object):
         return '<"{0}" background: {1} foreground: {2}>'.format(self.string, self.background, self.foreground)
     def __getitem__(self, item):
         return ColoredString(self.string[item], self.foreground, self.background)
+    def __eq__(self, other):
+        try:
+            return self.string == other.string and self.foreground == other.foreground and self.background == other.background
+        except:
+            return False
     def split(self):
         return [self.__getitem__(i) for i in range(len(self.string))]
     def rasterize(self):
         return wrap_in_escaped_color(self.string, self.foreground, self.background)
+
     @classmethod
     def rasterize_any(cls, string):
         """ returns a raserized version of a string, ColoredString, or a list """
@@ -57,6 +77,7 @@ class ColoredString(object):
         raise ValueError('Unknown type for split_any: {0}'.format(type(string)))
 
 def color(foreground=None, background=None):
+    global CSI
     def rgb_to_color(r,g,b):
         return int(r/256.*5*36) + int(g/256.*5*6) + int(b/256.*5) + 16
 
@@ -78,40 +99,42 @@ def color(foreground=None, background=None):
                'pink': '212',
                'wild': '201',
                '+2': '255' }
-    
+
     ret_foreground = ''
     ret_background = ''
     if type(foreground) == str:
-        ret_foreground = '\x1b[38;5;{color}m'.format(color=colors[foreground])
+        ret_foreground = CSI + '[38;5;{color}m'.format(color=colors[foreground])
         # special exception for wild cards!
         if foreground == 'wild':
-            ret_foreground = '\x1b[38;5;{color}m'.format(color=colors['black'])
-            ret_foreground = '\x1b[48;5;{color}m'.format(color=colors[foreground])
+            ret_foreground = CSI + '[38;5;{color}m'.format(color=colors['black'])
+            ret_foreground = CSI + '[48;5;{color}m'.format(color=colors[foreground])
     elif type(foreground) in (list, tuple):
-        ret_foreground = '\x1b[38;5;{color}m'.format(rgb_to_color(*foreground))
+        ret_foreground = CSI + '[38;5;{color}m'.format(rgb_to_color(*foreground))
 
     if type(background) == str:
-        ret_background = '\x1b[48;5;{color}m'.format(color=colors[background])
+        ret_background = CSI + '[48;5;{color}m'.format(color=colors[background])
     elif type(background) in (list, tuple):
-        ret_background = '\x1b[48;5;{color}m'.format(rgb_to_color(*background))
+        ret_background = CSI + '[48;5;{color}m'.format(rgb_to_color(*background))
     # if both foreground and background are none, we want the default coloring
     if foreground is None and background is None:
-        foreground = '\033[0m'
+        foreground = CSI + '[0m'
 
     return ret_background+ret_foreground
 
 def wrap_in_escaped_color(string, foreground=None, background=None):
-    return color(foreground, background) + string + '\033[0m'
+    global CSI, EMPTY
+    return EMPTY.join((color(foreground, background), string, CSI, '[0m'))
 
 def split_display_chars(string):
     """ Returns a list of the chars in string where each character is a character that gets displayed,
     i.e., escape characters count as zero-width """
+    global CSI
     tmp_buf = []
     char_buf = []
     i = 0
     while i < len(string):
         char_buf = [string[i]]
-        if string[i] == '\033':
+        if string[i] == CSI:
             while string[i].lower() not in  ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z']:
                 i += 1
                 char_buf.append(string[i])
@@ -137,8 +160,9 @@ def split_display_chars(string):
     return ret
 
 def num_to_subscript(string):
+    global SUBSCRIPT_NUMBERS
     intab = '0123456789'
-    outtab = '₀₁₂₃₄₅₆₇₈₉'
+    outtab = SUBSCRIPT_NUMBERS
     transtab = dict(zip(intab, outtab))
     ret = []
     for c in string:
@@ -172,6 +196,7 @@ class ThreadedInputCallback(threading.Thread):
         self.parent = parent
         self.STOP_THREAD = False
     def run(self):
+        global CSI
         # from the standard library...
         fd = self.parent.stream.fileno()
 
@@ -188,7 +213,7 @@ class ThreadedInputCallback(threading.Thread):
                 try:
                     c = sys.stdin.read(1)
                     command = c
-                    if c == '\x1b':
+                    if c == CSI:
                         # grab all the characters until the end of the escape sequence
                         while c.lower() not in ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z']:
                             c = sys.stdin.read(1)
@@ -209,6 +234,8 @@ class StringBuffer(object):
         self.height = height
         # Buffer is initialized to all spaces
         self.lines = [[' ' for i in range(self.width)] for j in range(self.height)]
+    def __repr__(self):
+        return '\n'.join([ColoredString.rasterize_any(l) for l in self.lines])
 
     def set(self, x, y, char):
         if 0 <= x < self.width and 0 <= y < self.height:
@@ -217,16 +244,34 @@ class StringBuffer(object):
                 if x + i < self.width:
                     self.lines[y][x + i] = c
     def erase(self):
+        """ replaces the entire buffer with whitespace """
         self.lines = [[' ' for i in range(self.width)] for j in range(self.height)]
+
+    def duplicate(self):
+        new = StringBuffer(self.width, self.height)
+        new.lines = [l[:] for l in self.lines]
+        return new
+
+    def difference(self, other):
+        """ returns a list (i, self.line[i]) where i index
+        of line where self.lines[i] != other.lines[i] """
+        ret = []
+        for i,l in enumerate(self.lines):
+            if l != other.lines[i]:
+                ret.append( (i, l[:]) )
+        return ret
+
+
 
 class Terminal(object):
     def __init__(self, stream):
         self.stream = stream
         self.buffer = StringBuffer(*self.get_size())
+        self.last_redered_buffer = self.buffer.duplicate()
         self.queued_refreshes = 0
 
     def get_size(self):
-        width, height = 80, 40
+        width, height = 80, 25
         try:
             s = struct.pack("HHHH", 0, 0, 0, 0)
             fd_stdout = sys.stdout.fileno()
@@ -235,9 +280,6 @@ class Terminal(object):
         except:
             pass
         return (width, height)
-
-    def move_cursor(self, x, y):
-        self.stream.write('\033[{0};{1}H'.format(y + 1,x + 1))
 
     def resize(self, x=-1, y=-1):
         if x < 0  or y < 0:
@@ -257,34 +299,30 @@ class Terminal(object):
         self.input_thread = ThreadedInputCallback(self, callback)
         self.input_thread.start()
 
+    def move_cursor(self, x, y):
+        global CSI
+        self.stream.write(CSI + '[{0};{1}H'.format(y + 1,x + 1))
+
     def add_str(self, x, y, string):
         self.buffer.set(x, y, string)
-#        self.move_cursor(x,y)
-#        self.stream.write(string)
+
     def erase(self):
-        self.stream.write('\033[2J')
+        global CSI
+        self.stream.write(CSI + '[2J')
+
     def hide_cursor(self):
-        self.stream.write('\033[?25l')
-        self.refresh()
-    def show_cursor(self):
-        self.stream.write('\033[?25h')
+        global CSI
+        self.stream.write(CSI + '[?25l')
         self.refresh()
 
-    def draw_box(self, x, y, width, height):
-        for i in range(1, width):
-            self.add_str(x + i, y, ColoredString('─', 'pink', background='gray'))
-            self.add_str(x + i, y + height, '─')
-        for i in range(1, height):
-            pass
-            self.add_str(x, y + i, '│')
-            self.add_str(x + width, y + i, '│')
-        self.add_str(x,y, '┌')
-        self.add_str(x + width, y, '┐')
-        self.add_str(x + width,y + height, '┘')
-        self.add_str(x,y + height, '└')
+    def show_cursor(self):
+        global CSI
+        self.stream.write(CSI + '[?25h')
         self.refresh()
+
     def draw_n_column_layout(self, x,y, width, height, n_cols):
         """ draw a border for a n_column layout """
+        global HL, VL, UL, UR, LL, LR, UT, LT
 
         # Compute the space given to each column
         col_widths = []
@@ -299,40 +337,43 @@ class Terminal(object):
         # Draw the vertical portion of each column
         offset = 0
         for j in range(1, height - 1):
-            self.add_str(x, y + j, '│')
+            self.add_str(x, y + j, VL)
         for i in range(n_cols):
             for j in range(1, height - 1):
-                self.add_str(x + offset + col_widths[i], y + j, '│')
+                self.add_str(x + offset + col_widths[i], y + j, VL)
             for j in range(1, col_widths[i]):
-                self.add_str(x + offset + j, y, '─')
-                self.add_str(x + offset + j, y + height - 1, '─')
+                self.add_str(x + offset + j, y, HL)
+                self.add_str(x + offset + j, y + height - 1, HL)
             # Draw the T-joins
             if i < n_cols - 1:
-                self.add_str(x + offset + j + 1, y, '┬')
-                self.add_str(x + offset + j + 1, y + height - 1, '┴')
+                self.add_str(x + offset + j + 1, y, UT)
+                self.add_str(x + offset + j + 1, y + height - 1, LT)
             # Create the subwindow for the current region
             subwindows.append(SubWindow(self, x + offset + 1, y + 1, col_widths[i] - 1, height - 2))
             offset += col_widths[i]
-        self.add_str(x,y, '┌')
-        self.add_str(x + width - 1, y, '┐')
-        self.add_str(x + width - 1,y + height - 1, '┘')
-        self.add_str(x,y + height - 1, '└')
+        self.add_str(x,y, UL)
+        self.add_str(x + width - 1, y, UR)
+        self.add_str(x + width - 1,y + height - 1, LR)
+        self.add_str(x,y + height - 1, LL)
         self.refresh()
 
         return subwindows
-
 
     def refresh(self):
         def flush():
             if self.queued_refreshes == 0:
                 return
             try:
-                for i,line in enumerate(self.buffer.lines):
+                self.queued_refreshes = 0
+                # we only redraw the lines that have changed
+                diff = self.buffer.difference(self.last_redered_buffer)
+                for i,line in diff:
                     self.move_cursor(0,i)
                     self.stream.write(ColoredString.rasterize_any(line))
                 self.stream.flush()
-                self.queued_refreshes = 0
+                self.last_redered_buffer = self.buffer.duplicate()
             except IOError:
+                self.queued_refreshes = 1
                 timer = threading.Timer(.1, flush)
                 timer.start()
         # when we get a call to refresh, delay it by .1 secs to amalgomate any other refresh
@@ -391,18 +432,19 @@ class PolychromeLayout(object):
         self.bottom_area.refresh()
 
     def keypress_callback(self, term, key):
-        if key == '\x1b[A':
+        global CSI
+        if key == CSI + '[A':
             # up
             self.piles.select_previous()
             self.print_pile_action()
-        elif key == '\x1b[B':
+        elif key == CSI + '[B':
             # down
             self.piles.select_next()
             self.print_pile_action()
-        elif key == '\x1b[C':
+        elif key == CSI + '[C':
             # right
             pass
-        elif key == '\x1b[D':
+        elif key == CSI + '[D':
             # left
             pass
         elif key == '\n':
@@ -474,6 +516,7 @@ class Piles(object):
         self.refresh()
 
     def refresh(self):
+        global CARD_CHAR
         self.term.erase()
 
         for i,p in enumerate(self.piles):
@@ -481,10 +524,10 @@ class Piles(object):
             # get a cound of the number of each color of cards so we can
             # display how many there are as a subscript
             counted = Counter(p['cards'])
-            
+
             for c in counted:
                 # if there is more than one card of a particular color, display a subscript number of how many cards there are
-                card_in_color = ColoredString('▊', c)
+                card_in_color = ColoredString(CARD_CHAR, c)
                 number_of_cards = num_to_subscript(str(counted[c]))
                 card_list.append(card_in_color)
                 if counted[c] > 1:
