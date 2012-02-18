@@ -4,19 +4,12 @@
 # Created: 30 January 2012, Chee Sing Lee
 
 from __future__ import print_function
-#from __future__ import unicode_literals
 from random import shuffle, sample, random
 from itertools import combinations_with_replacement
 import sys, time
 import copy
 
 import terminal
-
-# For debugging with winpdb
-try:
-    import rpdb2; rpdb2.start_embedded_debugger('x')
-except ImportError:
-    pass
 
 if sys.version_info.major == 2:
     input = raw_input
@@ -613,13 +606,61 @@ class RandomBot(PolychromePlayer):
         return sample(idx_draw,1)[0]
 
 if __name__ == "__main__":
-    # example game with 3 RandomBots, 1 GreedyBot, and 1 HumanPlayer
+    import argparse
+    parser = argparse.ArgumentParser(description='Play a game of polychrome')
+    parser.add_argument('--debug', action='store_true', default=False, 
+                        help='Run with rpdb2 hooks started for connecting via winpdb')
+    parser.add_argument('--play', action='store_true', default=False, 
+                        help='Start playing as a human player')
+    parser.add_argument('--set-ais', dest='AIs', metavar='AI', type=str, nargs='+', default=[],
+                        help='A list of AIs to play against')
+    parser.add_argument('--scoring', type=str, default='scoring1',
+                        help='A list of AIs to play against')
+    args = parser.parse_args()
+
+    ## Handle all the argument parsing
+
+    # Start debug if neccessary
+    if args.debug:
+        # For debugging with winpdb
+        try:
+            print('Starting rpdb debugger with password \'x\'')
+            import rpdb2; rpdb2.start_embedded_debugger('x')
+        except ImportError:
+            pass
+
     players = []
-    for i in range(2):
-        players.append(GreedyBot('Player '+str(i+1)))
-#    players.append(GreedyBot('Greedy'))
-#    player_name = input('Enter your name: ')
-#    players.append(HumanPlayer('Human'))
-    game = PolychromeGame(players,scoring1)
-    game.set_log_mode('print')
+    # Add a human player if requested
+    if args.play:
+        players.append(HumanPlayer('Human'))
+
+    # Run through the list of AIs given and do some fancy introspection to add them
+    if len(args.AIs) == 0:
+        # If no list of AIs is given, put in a defalt
+        players.append(GreedyBot('Greedy'))
+        players.append(GreedyBot('Random'))
+    else:
+        # get a list of all AI classes.  I.e., all classes in the current scope that derive from PolychromePlayer
+        scope = locals()
+        ais = {}
+        for k in list(scope.keys()):
+            if isinstance(scope[k], type) and issubclass(scope[k], (PolychromePlayer,)):
+                ais[k] = scope[k]
+        
+        for i,ai in enumerate(args.AIs):
+            try:
+                players.append(scope[ai]('Player {0}'.format(i)))
+            except KeyError as e:
+                sys.stderr.write("Unknown AI {0}\n".format(e))
+
+    # Set up the scoring method
+    scoring = {'scoring1': scoring1, 'scoring2': scoring2}[args.scoring]
+
+
+    ## Start the game
+    game = PolychromeGame(players, scoring)
+    if args.play:
+        game.set_log_mode('buffer')
+    else:
+        game.set_log_mode('print')
     game.play()
