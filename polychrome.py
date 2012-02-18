@@ -3,7 +3,8 @@
 # -*- encoding: utf-8 -*-
 # Created: 30 January 2012, Chee Sing Lee
 
-from __future__ import print_function, unicode_literals
+from __future__ import print_function
+#from __future__ import unicode_literals
 from random import shuffle, sample, random
 from itertools import combinations_with_replacement
 import sys, time
@@ -538,7 +539,7 @@ class HumanPlayer(PolychromePlayer):
         for i,p in enumerate(self.game.piles):
             piles.append({ 'cards': p,
                            'name': 'Pile {0}'.format(i),
-                           'action_text': ['Place ', terminal.ColoredString('▊',card), ' on Pile {0}'.format(i)],
+                           'action_text': ['Place ', terminal.ColoredString(terminal.CARD_CHAR, card), ' on Pile {0}'.format(i)],
                            'action_response': { 'action': 'place', 'pile': i },
                            'pile_taken': self.game.piles_taken[i],
                            'selectable': not self.game.piles_taken[i] })
@@ -553,8 +554,6 @@ class HumanPlayer(PolychromePlayer):
     def get_action(self):
         while True:
             self.display_draw_or_take_status()
-            #TODO for some reason if this is not here a IOError: [Errno 11] Resource temporarily unavailable error occurs
-#            time.sleep(.1)
             action = self.polychrome_layout.block_for_input()
             if action['action'] == 'draw':
                 return 'draw'
