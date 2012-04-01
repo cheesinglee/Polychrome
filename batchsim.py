@@ -9,7 +9,51 @@ from ui_simulator import *
 from PyQt4 import QtCore, QtGui
 from numpy import *
 from matplotlib.backends.backend_qt4agg import FigureCanvasQTAgg as FigureCanvas
-from matplotlib.backends.backend_qt4agg import NavigationToolbar2QTAgg as NavigationToolbar     
+from matplotlib.backends.backend_qt4agg import NavigationToolbar2QTAgg as NavigationToolbar   
+
+class SimulatorThread(QtCore.QThread):
+    update_signal = QtCore.pyqtSignal(str,int)
+    def __init__(self,parent=None):
+        QtCore.QThread.__init__(self,parent)
+        self.exiting = False
+        self.n_runs = 0 ;
+        self.players = None
+        self.scoring = None
+        self.results = None 
+
+    def __del__(self):
+        self.exiting = True
+        self.wait()
+        
+    def do_simulation(self,n,players,scoring):
+        self.n_runs = n
+        self.players = players
+        self.scoring = scoring
+        self.results = {}
+        self.start()
+        
+    def run(self):
+        # prepare data structure to store results
+        self.results['scores'] = [list() for p in self.players]
+        
+        n = 0
+        n_players = len(self.players)
+        progress = 0
+        while n < self.n_runs and not self.exiting:
+            # reset players
+            for p in self.players:
+                p.__init__(p.name)
+            self.update_signal.emit('\n>>>>>>> Starting Game #'+str(n+1)+'/'+str(self.n_runs)+' <<<<<<<\n',progress)
+            game = PolychromeGame(self.players,self.scoring)
+            game.play()
+            # save scores
+            scores = game.compute_scores()
+            for i in range(n_players):
+                self.results['scores'][i].append(scores[i])
+            progress = int(100*(n+1)/self.n_runs)
+            self.update_signal.emit(game.flush_log(),progress)
+            n += 1
+        
 
 class Simulator(QtGui.QMainWindow):
     def __init__(self):
@@ -21,6 +65,7 @@ class Simulator(QtGui.QMainWindow):
         self.scoring_schemes = [[0,1,3,6,10,15,21],[0,1,4,8,7,6,5]]
         self.results = {}
         self.populate_players()
+        self.thread = SimulatorThread()
         self.setup_ui()
     
     def setup_ui(self):
@@ -48,6 +93,8 @@ class Simulator(QtGui.QMainWindow):
             box.currentIndexChanged.connect(self.validate_checkbox)
             
         self.ui.cbo_plots.activated.connect(self.do_results_plot)
+        self.thread.update_signal.connect(self.thread_update_slot)
+        self.thread.finished.connect(self.thread_finished_slot)
         
     def populate_players(self):
         """
@@ -81,22 +128,24 @@ class Simulator(QtGui.QMainWindow):
         scoring = self.scoring_schemes[idx_scoring]
         self.log('Scoring is: '+str(scoring))
         
-        # prepare data structure to store results
-        self.results['scores'] = [list() for p in self.players]
+        self.thread.do_simulation(n_runs,self.players,scoring)
         
-        for n in range(n_runs):
-            # reset players
-            for p in self.players:
-                p.__init__(p.name)
-            self.log('\n>>>>>>> Starting Game #'+str(n+1)+'/'+str(n_runs)+' <<<<<<<\n')
-            game = PolychromeGame(self.players,scoring)
-            game.play()
-            # save scores
-            scores = game.compute_scores()
-            for i in range(n_players):
-                self.results['scores'][i].append(scores[i])
-            self.log(game.flush_log())
-            self.ui.progress_bar.setValue(int(100*n+1/n_runs))
+#        # prepare data structure to store results
+#        self.results['scores'] = [list() for p in self.players]
+#        
+#        for n in range(n_runs):
+#            # reset players
+#            for p in self.players:
+#                p.__init__(p.name)
+#            self.log('\n>>>>>>> Starting Game #'+str(n+1)+'/'+str(n_runs)+' <<<<<<<\n')
+#            game = PolychromeGame(self.players,scoring)
+#            game.play()
+#            # save scores
+#            scores = game.compute_scores()
+#            for i in range(n_players):
+#                self.results['scores'][i].append(scores[i])
+#            self.log(game.flush_log())
+#            self.ui.progress_bar.setValue(int(100*n+1/n_runs))
             
     def do_results_plot(self,idx):
         if idx == 0:
@@ -117,7 +166,7 @@ class Simulator(QtGui.QMainWindow):
             winner = scores_k.index(max(scores_k))
             wins[winner] += 1 
             
-        print('wins= ',wins)
+#        print('wins= ',wins)
         self.ui.canvas.plot(wins,plotmethod='pie')
                  
     def validate_checkbox(self,idx):
@@ -134,6 +183,13 @@ class Simulator(QtGui.QMainWindow):
         else:
             if idx < 4:
                 self.boxes[idx+1].setEnabled(True)
+                
+    def thread_finished_slot(self):
+        self.results = self.thread.results
+                
+    def thread_update_slot(self,logstring,progress_val):
+        self.log(logstring)
+        self.ui.progress_bar.setValue(progress_val)
                 
     def log(self,msg):
         """
