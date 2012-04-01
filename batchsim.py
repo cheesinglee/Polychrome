@@ -1,3 +1,4 @@
+#!/usr/bin/python2
 # -*- coding: utf-8 -*-
 #Batch simulator for polychrome
 #
@@ -6,7 +7,9 @@
 from polychrome import *
 from ui_simulator import *
 from PyQt4 import QtCore, QtGui
-#from numpy import *
+from numpy import *
+from matplotlib.backends.backend_qt4agg import FigureCanvasQTAgg as FigureCanvas
+from matplotlib.backends.backend_qt4agg import NavigationToolbar2QTAgg as NavigationToolbar     
 
 class Simulator(QtGui.QMainWindow):
     def __init__(self):
@@ -16,6 +19,7 @@ class Simulator(QtGui.QMainWindow):
         self.players = []
         self.player_types = []
         self.scoring_schemes = [[0,1,3,6,10,15,21],[0,1,4,8,7,6,5]]
+        self.results = {}
         self.populate_players()
         self.setup_ui()
     
@@ -35,10 +39,15 @@ class Simulator(QtGui.QMainWindow):
         for s in self.scoring_schemes:
             self.ui.cbo_scoring.addItem(str(s))
             
+        # set up the plotting canvas
+        self.ui.canvas
+            
         # connect UI elements
         self.ui.btn_go.clicked.connect(self.do_simulation)
         for box in self.boxes:
             box.currentIndexChanged.connect(self.validate_checkbox)
+            
+        self.ui.cbo_plots.activated.connect(self.do_results_plot)
         
     def populate_players(self):
         """
@@ -52,6 +61,7 @@ class Simulator(QtGui.QMainWindow):
         if not n_runs > 0:
             QtGui.QMessageBox.warning(self,"Number of games must be at least 1")
             return
+
         self.log('#### Starting Batch Simulation ####')
         # create the players
         self.players = []
@@ -64,11 +74,15 @@ class Simulator(QtGui.QMainWindow):
                 player_class = self.player_types[idx-1]
                 self.players.append(player_class(player_name))
         self.log('Players are: '+str([p.__class__.__name__ for p in self.players]))
+        n_players = len(self.players)
         
         # get the scoring scheme
         idx_scoring = self.ui.cbo_scoring.currentIndex()
         scoring = self.scoring_schemes[idx_scoring]
         self.log('Scoring is: '+str(scoring))
+        
+        # prepare data structure to store results
+        self.results['scores'] = [list() for p in self.players]
         
         for n in range(n_runs):
             # reset players
@@ -77,8 +91,34 @@ class Simulator(QtGui.QMainWindow):
             self.log('\n>>>>>>> Starting Game #'+str(n+1)+'/'+str(n_runs)+' <<<<<<<\n')
             game = PolychromeGame(self.players,scoring)
             game.play()
+            # save scores
+            scores = game.compute_scores()
+            for i in range(n_players):
+                self.results['scores'][i].append(scores[i])
             self.log(game.flush_log())
             self.ui.progress_bar.setValue(int(100*n+1/n_runs))
+            
+    def do_results_plot(self,idx):
+        if idx == 0:
+            self.plot_win_percentage()
+            
+    def plot_win_percentage(self):
+        """ Make a pie chart of winning frequency """
+        if len(self.results) == 0:
+            return
+        
+        # count wins
+        n_players = len(self.players) 
+        wins = [0]*n_players
+        scores = self.results['scores']
+        n_runs = len(scores[0])
+        for k in range(n_runs):
+            scores_k = [scores[j][k] for j in range(n_players)]
+            winner = scores_k.index(max(scores_k))
+            wins[winner] += 1 
+            
+        print('wins= ',wins)
+        self.ui.canvas.plot(wins,plotmethod='pie')
                  
     def validate_checkbox(self,idx):
         """
@@ -105,4 +145,4 @@ if __name__ == "__main__":
     app = QtGui.QApplication(sys.argv)
     main = Simulator()
     main.show()
-#    sys.exit(app.exec_())
+    sys.exit(app.exec_())

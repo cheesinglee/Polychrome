@@ -2,7 +2,7 @@
 
 # Form implementation generated from reading ui file 'simulator.ui'
 #
-# Created: Fri Feb 17 23:20:39 2012
+# Created: Sun Mar 25 20:14:06 2012
 #      by: PyQt4 UI code generator 4.9.1
 #
 # WARNING! All changes made in this file will be lost!
@@ -143,13 +143,20 @@ class Ui_Simulator(object):
         self.tab_2.setObjectName(_fromUtf8("tab_2"))
         self.verticalLayout_2 = QtGui.QVBoxLayout(self.tab_2)
         self.verticalLayout_2.setObjectName(_fromUtf8("verticalLayout_2"))
-        self.comboBox_7 = QtGui.QComboBox(self.tab_2)
-        self.comboBox_7.setObjectName(_fromUtf8("comboBox_7"))
-        self.verticalLayout_2.addWidget(self.comboBox_7)
-        self.widget = QtGui.QWidget(self.tab_2)
-        self.widget.setMinimumSize(QtCore.QSize(800, 600))
-        self.widget.setObjectName(_fromUtf8("widget"))
-        self.verticalLayout_2.addWidget(self.widget)
+        self.cbo_plots = QtGui.QComboBox(self.tab_2)
+        self.cbo_plots.setObjectName(_fromUtf8("cbo_plots"))
+        self.cbo_plots.addItem(_fromUtf8(""))
+        self.cbo_plots.addItem(_fromUtf8(""))
+        self.verticalLayout_2.addWidget(self.cbo_plots)
+        self.canvas = QFigure(self.tab_2)
+        sizePolicy = QtGui.QSizePolicy(QtGui.QSizePolicy.Expanding, QtGui.QSizePolicy.Expanding)
+        sizePolicy.setHorizontalStretch(1)
+        sizePolicy.setVerticalStretch(1)
+        sizePolicy.setHeightForWidth(self.canvas.sizePolicy().hasHeightForWidth())
+        self.canvas.setSizePolicy(sizePolicy)
+        self.canvas.setMinimumSize(QtCore.QSize(800, 600))
+        self.canvas.setObjectName(_fromUtf8("canvas"))
+        self.verticalLayout_2.addWidget(self.canvas)
         self.tabWidget.addTab(self.tab_2, _fromUtf8(""))
         self.tab_3 = QtGui.QWidget()
         self.tab_3.setObjectName(_fromUtf8("tab_3"))
@@ -182,7 +189,7 @@ class Ui_Simulator(object):
         Simulator.setStatusBar(self.statusbar)
 
         self.retranslateUi(Simulator)
-        self.tabWidget.setCurrentIndex(0)
+        self.tabWidget.setCurrentIndex(1)
         QtCore.QMetaObject.connectSlotsByName(Simulator)
 
     def retranslateUi(self, Simulator):
@@ -198,10 +205,13 @@ class Ui_Simulator(object):
         self.chk_preset_wilds.setToolTip(QtGui.QApplication.translate("Simulator", "When a player picks up a wild, he must immediately assign it a color, which can not be later modified.", None, QtGui.QApplication.UnicodeUTF8))
         self.chk_preset_wilds.setText(QtGui.QApplication.translate("Simulator", "Preset Wilds", None, QtGui.QApplication.UnicodeUTF8))
         self.tabWidget.setTabText(self.tabWidget.indexOf(self.tab), QtGui.QApplication.translate("Simulator", "Simulation Setup", None, QtGui.QApplication.UnicodeUTF8))
+        self.cbo_plots.setItemText(0, QtGui.QApplication.translate("Simulator", "Win Percentage", None, QtGui.QApplication.UnicodeUTF8))
+        self.cbo_plots.setItemText(1, QtGui.QApplication.translate("Simulator", "Score Histograms", None, QtGui.QApplication.UnicodeUTF8))
         self.tabWidget.setTabText(self.tabWidget.indexOf(self.tab_2), QtGui.QApplication.translate("Simulator", "Results", None, QtGui.QApplication.UnicodeUTF8))
         self.tabWidget.setTabText(self.tabWidget.indexOf(self.tab_3), QtGui.QApplication.translate("Simulator", "Log", None, QtGui.QApplication.UnicodeUTF8))
         self.btn_go.setText(QtGui.QApplication.translate("Simulator", "Go!", None, QtGui.QApplication.UnicodeUTF8))
 
+from qfigure import QFigure
 
 if __name__ == "__main__":
     import sys

@@ -36,7 +36,7 @@
        </sizepolicy>
       </property>
       <property name="currentIndex">
-       <number>0</number>
+       <number>1</number>
       </property>
       <widget class="QWidget" name="tab">
        <attribute name="title">
@@ -222,10 +222,27 @@
        </attribute>
        <layout class="QVBoxLayout" name="verticalLayout_2">
         <item>
-         <widget class="QComboBox" name="comboBox_7"/>
+         <widget class="QComboBox" name="cbo_plots">
+          <item>
+           <property name="text">
+            <string>Win Percentage</string>
+           </property>
+          </item>
+          <item>
+           <property name="text">
+            <string>Score Histograms</string>
+           </property>
+          </item>
+         </widget>
         </item>
         <item>
-         <widget class="QWidget" name="widget" native="true">
+         <widget class="QFigure" name="canvas" native="true">
+          <property name="sizePolicy">
+           <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
+            <horstretch>1</horstretch>
+            <verstretch>1</verstretch>
+           </sizepolicy>
+          </property>
           <property name="minimumSize">
            <size>
             <width>800</width>
@@ -290,6 +307,14 @@
   </widget>
   <widget class="QStatusBar" name="statusbar"/>
  </widget>
+ <customwidgets>
+  <customwidget>
+   <class>QFigure</class>
+   <extends>QWidget</extends>
+   <header>qfigure.h</header>
+   <container>1</container>
+  </customwidget>
+ </customwidgets>
  <resources/>
  <connections/>
 </ui>
